@@ -1,8 +1,7 @@
-// src/utils/fetchChainData.js
-import CHAINS_ALL from "../data/chains.js";
+import CHAINS_RAW from "../data/chains.js";
 
 /** RaaS we care about */
-const RaaS_SET = new Set([
+export const RaaS_SET = new Set([
   "Caldera",
   "Conduit",
   "AltLayer",
@@ -10,12 +9,12 @@ const RaaS_SET = new Set([
   "Gelato",
 ]);
 
-/** Keep only supported RaaS */
-const CHAINS = (Array.isArray(CHAINS_ALL) ? CHAINS_ALL : []).filter(
+/** Normalize & keep only our RaaS */
+export const CHAINS = (Array.isArray(CHAINS_RAW) ? CHAINS_RAW : []).filter(
   (c) => c && RaaS_SET.has(c.raas)
 );
 
-/** --------- helpers --------- */
+/** parse numbers safely */
 const num = (v) => {
   if (v == null || v === "—") return 0;
   if (typeof v === "number") return v;
@@ -32,21 +31,16 @@ const buildLinesUrl = (linesUrl, id) => {
 
 const smartFetchJson = async (url) => {
   if (!url) return null;
-
-  // Try via your proxy first (enables CORS)
   try {
     const r = await fetch(`/api/explorer?url=${encodeURIComponent(url)}`, {
       cache: "no-store",
     });
     if (r.ok) return await r.json();
   } catch {}
-
-  // Fallback: direct (will work if explorer already sets correct CORS)
   try {
     const r = await fetch(url, { mode: "cors", cache: "no-store" });
     if (r.ok) return await r.json();
   } catch {}
-
   return null;
 };
 
@@ -54,15 +48,13 @@ const avgTpsFromDaily = (chart = [], days = 7) => {
   const tail = chart.slice(-days);
   if (!tail.length) return 0;
   const sum = tail.reduce((a, d) => a + (Number(d?.value) || 0), 0);
-  // values are "new transactions per day"
   return sum / (tail.length * 86400);
 };
 
-/** ===============================================
- *  LIVE PULL — returns one row per chain
- *  { name, raas, vertical, rollup, layer, totalTx, avgTPS, tvl,
- *    totalAddresses, average_block_time, total_gas_used }
- * =============================================== */
+/**
+ * Live pull: returns one row per chain with best-effort stats.
+ * NOTE: Project counting must NEVER depend on this succeeding.
+ */
 export async function fetchChainMetrics() {
   const rows = [];
 
@@ -70,25 +62,24 @@ export async function fetchChainMetrics() {
     let stats = null;
     let avgTPS = 0;
 
-    // Snapshot stats (total tx, tvl, etc.)
-    if (c.statsUrl) stats = await smartFetchJson(c.statsUrl);
+    // try snapshot
+    stats = await smartFetchJson(c.statsUrl);
 
-    // Time-series for avg TPS (prefer /lines/newTxns)
+    // try time-series for Average TPS
     if (c.linesUrl) {
       const newTxnsUrl = buildLinesUrl(c.linesUrl, "newTxns");
       const series = await smartFetchJson(newTxnsUrl);
       avgTPS = avgTpsFromDaily(series?.chart || []);
-    }
-    // Fallback to transactions_today if series missing
-    if (!avgTPS && stats?.transactions_today) {
-      avgTPS = (Number(stats.transactions_today) || 0) / 86400;
+      if (!avgTPS && stats?.transactions_today) {
+        avgTPS = (Number(stats.transactions_today) || 0) / 86400;
+      }
     }
 
     rows.push({
       name: c.name,
       raas: c.raas,
-      vertical: c.vertical || "—",
-      rollup: c.rollup || "—",
+      vertical: c.vertical,
+      rollup: c.rollup,
       layer: c.layer,
       totalTx: num(stats?.total_transactions),
       avgTPS,
@@ -102,7 +93,9 @@ export async function fetchChainMetrics() {
   return rows;
 }
 
-/** ============== Aggregation for the two sections ============== */
+/** ------------ Aggregation helpers (Category + Rollup Stack) ------------ **/
+
+// metrics keys we support in the UI
 export const METRIC_KEYS = {
   AVG_TPS: "avgTPS",
   TX_COUNT: "totalTx",
@@ -110,25 +103,24 @@ export const METRIC_KEYS = {
   TVL: "tvl",
 };
 
-const ensure = (obj, k, v) => (obj[k] ??= v);
+const by = (obj, k) => (obj[k] ?? (obj[k] = {}), obj[k]);
 
 /**
- * aggregate(liveRows)
  * Returns:
  * {
  *   totals: { projectCount, txCount, avgTPS, tvl },
- *   byVertical: {
- *     [vertical]: {
- *        perRaaS:{ [raas]: { projectCount,totalTx,tvl,avgTPS } },
- *        combined:{ projectCount,totalTx,tvl,avgTPS }
- *     }
- *   },
- *   byStack: { [rollup]: { perRaaS:{...}, combined:{...} } }
+ *   byVertical: { [vertical]: { // across RaaS
+ *       perRaaS: { [raas]: { projectCount, totalTx, avgTPS, tvl } },
+ *       combined: { projectCount, totalTx, avgTPS, tvl }
+ *   }},
+ *   byStack: { [stack]: { perRaaS: {...}, combined: {...} } }
  * }
  */
-export function aggregate(liveRows = []) {
-  // Join CHAINS meta with live numbers (by name)
+export function aggregate(chainsMeta, liveRows) {
+  // Index live rows by chain name (not ideal but works with your list)
   const live = new Map(liveRows.map((r) => [r.name, r]));
+
+  // Build enriched rows (fallback numbers to 0 if live missing)
   const rows = CHAINS.map((c) => {
     const L = live.get(c.name);
     return {
@@ -143,83 +135,90 @@ export function aggregate(liveRows = []) {
     };
   });
 
-  // Totals
+  // Totals (global)
   const totals = {
     projectCount: rows.length,
     txCount: rows.reduce((a, r) => a + r.totalTx, 0),
+    // avgTPS global = mean of per-chain avgTPS (not weighted)
     avgTPS: rows.length
       ? rows.reduce((a, r) => a + r.avgTPS, 0) / rows.length
       : 0,
     tvl: rows.reduce((a, r) => a + r.tvl, 0),
   };
 
-  // By Vertical
+  // By vertical + RaaS
   const byVertical = {};
   for (const r of rows) {
-    const vKey =
-      r.vertical && r.vertical !== "—" ? r.vertical : "Uncategorized";
-    const v = ensure(byVertical, vKey, { perRaaS: {} });
-    const bucket = ensure(v.perRaaS, r.raas, {
-      projectCount: 0,
-      totalTx: 0,
-      tvl: 0,
-      _tpsSum: 0,
-      _tpsN: 0,
-    });
-    bucket.projectCount += 1;
-    bucket.totalTx += r.totalTx;
-    bucket.tvl += r.tvl;
-    bucket._tpsSum += r.avgTPS;
-    bucket._tpsN += 1;
+    const v = r.vertical && r.vertical !== "—" ? r.vertical : "Uncategorized";
+    const vr = by(byVertical, v); // object for this vertical
+    const per = vr.perRaaS ?? (vr.perRaaS = {});
+    const rsum =
+      per[r.raas] ??
+      (per[r.raas] = {
+        projectCount: 0,
+        totalTx: 0,
+        tvl: 0,
+        _tpsSum: 0,
+        _tpsN: 0,
+      });
+    rsum.projectCount += 1;
+    rsum.totalTx += r.totalTx;
+    rsum.tvl += r.tvl;
+    rsum._tpsSum += r.avgTPS;
+    rsum._tpsN += 1;
   }
+  // finalize per-vertical combined + avgTPS
   Object.values(byVertical).forEach((v) => {
     const combined = { projectCount: 0, totalTx: 0, tvl: 0, avgTPS: 0 };
     let tpsSum = 0,
       tpsN = 0;
-    Object.values(v.perRaaS).forEach((b) => {
-      b.avgTPS = b._tpsN ? b._tpsSum / b._tpsN : 0;
-      delete b._tpsSum;
-      delete b._tpsN;
-      combined.projectCount += b.projectCount;
-      combined.totalTx += b.totalTx;
-      combined.tvl += b.tvl;
-      tpsSum += b.avgTPS;
+    Object.values(v.perRaaS).forEach((bucket) => {
+      bucket.avgTPS = bucket._tpsN ? bucket._tpsSum / bucket._tpsN : 0;
+      delete bucket._tpsSum;
+      delete bucket._tpsN;
+      combined.projectCount += bucket.projectCount;
+      combined.totalTx += bucket.totalTx;
+      combined.tvl += bucket.tvl;
+      tpsSum += bucket.avgTPS;
       tpsN += 1;
     });
     combined.avgTPS = tpsN ? tpsSum / tpsN : 0;
     v.combined = combined;
   });
 
-  // By Rollup Stack
+  // By stack (rollup) + RaaS
   const byStack = {};
   for (const r of rows) {
-    const sKey = r.rollup && r.rollup !== "—" ? r.rollup : "Other";
-    const s = ensure(byStack, sKey, { perRaaS: {} });
-    const bucket = ensure(s.perRaaS, r.raas, {
-      projectCount: 0,
-      totalTx: 0,
-      tvl: 0,
-      _tpsSum: 0,
-      _tpsN: 0,
-    });
-    bucket.projectCount += 1;
-    bucket.totalTx += r.totalTx;
-    bucket.tvl += r.tvl;
-    bucket._tpsSum += r.avgTPS;
-    bucket._tpsN += 1;
+    const s = r.rollup && r.rollup !== "—" ? r.rollup : "Other";
+    const sr = by(byStack, s);
+    const per = sr.perRaaS ?? (sr.perRaaS = {});
+    const rsum =
+      per[r.raas] ??
+      (per[r.raas] = {
+        projectCount: 0,
+        totalTx: 0,
+        tvl: 0,
+        _tpsSum: 0,
+        _tpsN: 0,
+      });
+    rsum.projectCount += 1;
+    rsum.totalTx += r.totalTx;
+    rsum.tvl += r.tvl;
+    rsum._tpsSum += r.avgTPS;
+    rsum._tpsN += 1;
   }
   Object.values(byStack).forEach((s) => {
     const combined = { projectCount: 0, totalTx: 0, tvl: 0, avgTPS: 0 };
     let tpsSum = 0,
       tpsN = 0;
-    Object.values(s.perRaaS).forEach((b) => {
-      b.avgTPS = b._tpsN ? b._tpsSum / b._tpsN : 0;
-      delete b._tpsSum;
-      delete b._tpsN;
-      combined.projectCount += b.projectCount;
-      combined.totalTx += b.totalTx;
-      combined.tvl += b.tvl;
-      tpsSum += b.avgTPS;
+    Object.values(s.perRaaS).forEach((bucket) => {
+      bucket.avgTPS = bucket._tpsN ? bucket._tpsSum / bucket._tpsN : 0;
+      delete bucket._tpsSum;
+      delete bucket._tpsN;
+      combined.projectCount += bucket.projectCount;
+      combined.totalTx += bucket.totalTx;
+      combined.tvl += bucket.tvl;
+      tpsSum += bucket.avgTPS;
       tpsN += 1;
     });
     combined.avgTPS = tpsN ? tpsSum / tpsN : 0;
@@ -229,9 +228,8 @@ export function aggregate(liveRows = []) {
   return { totals, byVertical, byStack };
 }
 
-/** map metric -> numeric */
+/** map a metric key -> numeric value on an aggregate bucket */
 export function readMetric(bucket, metricKey) {
-  if (!bucket) return 0;
   switch (metricKey) {
     case METRIC_KEYS.PROJECT_COUNT:
       return bucket.projectCount || 0;
