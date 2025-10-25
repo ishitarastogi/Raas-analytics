@@ -1,23 +1,22 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Header from "./components/Header.jsx";
-import Footer from "./components/Footer.jsx";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+
 import Home from "./pages/Home.jsx";
-import Stats from "./pages/Stats.jsx";
+import BattleOfChains from "./pages/BattleOfChains.jsx";
 
 export default function App() {
   return (
     <Router>
-      <div className="rud-shell">
-        <Header />
-        <main className="rud-main">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/stats" element={<Stats />} />
-          </Routes>
-        </main>
-        <Footer />
-      </div>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/battle" element={<BattleOfChains />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </Router>
   );
 }

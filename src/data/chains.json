@@ -1,0 +1,62 @@
+[
+  {
+    "name": "Aevo",
+    "launchDate": "Jun 14, 2023",
+    "vertical": "DeFi",
+    "statsUrl": "https://explorer-aevo-mainnet-prod-0.t.conduit.xyz/api/v2/stats",
+    "raas": "Conduit",
+    "layer": 2,
+    "rollup": "Optimism",
+    "token": "ETH",
+    "settlement": null,
+    "linesUrl": "https://explorer-aevo-mainnet-prod-0.t.conduit.xyz/api/v1/lines/newTxns"
+  },
+  {
+    "name": "AlienX",
+    "launchDate": "Jun 24, 2024",
+    "vertical": "Gaming",
+    "statsUrl": "https://api-explorer.alienxchain.io/api/v2/stats",
+    "raas": "Caldera",
+    "layer": 2,
+    "rollup": "Arbitrum",
+    "token": "ETH",
+    "settlement": null,
+    "linesUrl": "https://api-explorer.alienxchain.io/stats/api/v1/lines/newTxns"
+  },
+  {
+    "name": "Arena-Z",
+    "launchDate": "Sep 4, 2024",
+    "vertical": "Gaming",
+    "statsUrl": "https://explorer.arena-z.gg/api/v2/stats",
+    "raas": "Gelato",
+    "layer": 2,
+    "rollup": "Optimism",
+    "token": "ETH",
+    "settlement": null,
+    "linesUrl": "https://stats-arena-z.cloud.blockscout.com/api/v1/lines/newTxns"
+  },
+  {
+    "name": "Ham",
+    "launchDate": "Jun 5, 2024",
+    "vertical": "Social",
+    "statsUrl": "https://ham.calderaexplorer.xyz/api/v2/stats",
+    "raas": "Caldera",
+    "layer": 3,
+    "rollup": "Optimism",
+    "token": "ETH",
+    "settlement": "Base",
+    "linesUrl": "https://ham.calderaexplorer.xyz/stats/api/v1/lines/"
+  },
+  {
+    "name": "Lisk",
+    "launchDate": "Jun 1, 2024",
+    "vertical": "Ecosystem",
+    "statsUrl": "https://blockscout.lisk.com/api/v2/stats",
+    "raas": "Gelato",
+    "layer": 2,
+    "rollup": "Optimism",
+    "token": "ETH",
+    "settlement": null,
+    "linesUrl": "https://blockscout.lisk.com/stats-service/api/v1/lines/"
+  }
+]
