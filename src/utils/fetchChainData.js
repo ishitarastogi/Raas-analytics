@@ -1,4 +1,5 @@
 import CHAINS_RAW from "../data/chains.js";
+import { cacheGetFresh, cacheSet } from "./cache";
 
 /** RaaS we care about */
 export const RaaS_SET = new Set([
@@ -116,9 +117,11 @@ const by = (obj, k) => (obj[k] ?? (obj[k] = {}), obj[k]);
  *   byStack: { [stack]: { perRaaS: {...}, combined: {...} } }
  * }
  */
-export function aggregate(chainsMeta, liveRows) {
+export function aggregate(_chainsMetaIgnored, liveRows) {
   // Index live rows by chain name (not ideal but works with your list)
-  const live = new Map(liveRows.map((r) => [r.name, r]));
+  const live = new Map(
+    (Array.isArray(liveRows) ? liveRows : []).map((r) => [r.name, r])
+  );
 
   // Build enriched rows (fallback numbers to 0 if live missing)
   const rows = CHAINS.map((c) => {
@@ -242,6 +245,24 @@ export function readMetric(bucket, metricKey) {
     default:
       return 0;
   }
+}
+
+/* =========================
+   Stale-While-Revalidate cache
+   ========================= */
+const METRICS_CACHE_KEY = "chainMetrics";
+const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
+
+export function getCachedChainMetrics() {
+  return cacheGetFresh(METRICS_CACHE_KEY);
+}
+
+export async function fetchAndCacheChainMetrics(ttlMs = DEFAULT_TTL) {
+  const rows = await fetchChainMetrics();
+  if (Array.isArray(rows)) {
+    cacheSet(METRICS_CACHE_KEY, rows, ttlMs);
+  }
+  return rows;
 }
 
 export default fetchChainMetrics;
