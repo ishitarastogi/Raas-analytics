@@ -1,0 +1,253 @@
+:root {
+  --bg: #0b1118;
+  --ink: #fff;
+  --muted: rgba(255, 255, 255, 0.75);
+  --muted2: rgba(255, 255, 255, 0.6);
+  --card: rgba(255, 255, 255, 0.04);
+  --card2: rgba(255, 255, 255, 0.06);
+  --border: rgba(255, 255, 255, 0.14);
+  --radial: radial-gradient(
+    140% 160% at 0% 0%,
+    rgba(255, 255, 255, 0.06),
+    rgba(11, 17, 24, 0)
+  );
+  --glow: 0 0 18px rgba(255, 255, 255, 0.18) inset;
+  --brandA: #23b7b5; /* Conduit-ish */
+  --brandB: #fd4f00; /* Caldera-ish */
+  --brandC: #0662fe; /* Alchemy-ish */
+  --brandD: #ff3c58; /* Gelato-ish */
+  --accent: #7f85e8; /* AltLayer-ish */
+}
+
+.rb-root {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  padding: 2rem 1rem 4rem;
+}
+
+.card {
+  border: 1px solid var(--border);
+  background: var(--radial), var(--card);
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.35);
+}
+
+.rb-header h1 {
+  font-size: clamp(28px, 3.2vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.rb-sub {
+  color: var(--muted);
+  margin-top: 0.4rem;
+}
+.rb-meta {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.8rem;
+}
+.rb-pill {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--card2);
+}
+.rb-pill-win {
+  border-color: #2ecc71;
+  background: rgba(46, 204, 113, 0.14);
+}
+
+.rb-grid {
+  margin: 1.2rem auto 1.2rem;
+  padding: 1rem;
+  max-width: 1020px;
+}
+
+.rb-progress {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0.3rem 0 1rem;
+}
+.rb-progress-track {
+  position: relative;
+  height: 10px;
+  flex: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.rb-progress-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.25),
+    rgba(255, 255, 255, 0.5)
+  );
+  border-radius: 999px;
+  box-shadow: var(--glow);
+  transition: width 0.45s ease;
+}
+.rb-progress-text {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.rb-board {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.rb-square {
+  position: relative;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+  padding: 0.8rem;
+  text-align: left;
+  transition: transform 0.12s ease, background 0.2s ease, box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  cursor: pointer;
+  isolation: isolate;
+}
+.rb-square:hover {
+  transform: translateY(-2px);
+  background: var(--card2);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+.rb-square.is-checked {
+  border-color: rgba(46, 204, 113, 0.5);
+  background: linear-gradient(180deg, rgba(46, 204, 113, 0.18), transparent),
+    var(--card2);
+}
+.rb-square.is-just {
+  animation: rb-pulse 0.8s ease;
+}
+@keyframes rb-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 16px rgba(46, 204, 113, 0);
+  }
+}
+
+.rb-square-top,
+.rb-square-bottom {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.rb-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.25);
+}
+.rb-square-label {
+  font-size: 0.98rem;
+  color: var(--ink);
+  min-height: 48px;
+  line-height: 1.25;
+}
+.rb-tag {
+  font-size: 0.75rem;
+  color: var(--muted2);
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+}
+
+/* Confetti overlay */
+.rb-confetti {
+  pointer-events: none;
+  position: absolute;
+  inset: -20px 0 auto 0;
+  height: 0;
+}
+.rb-confetti::before,
+.rb-confetti::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 4px;
+  height: 4px;
+  background: transparent;
+  box-shadow: -280px 0 0 2px var(--brandA), -240px 0 0 2px var(--brandB),
+    -200px 0 0 2px var(--brandC), -160px 0 0 2px var(--accent),
+    -120px 0 0 2px var(--brandD), -80px 0 0 2px #2ecc71, -40px 0 0 2px #f1c40f,
+    0 0 0 2px #e67e22, 40px 0 0 2px #9b59b6, 80px 0 0 2px #1abc9c,
+    120px 0 0 2px #3498db, 160px 0 0 2px #e84393, 200px 0 0 2px #d63031,
+    240px 0 0 2px #fd79a8, 280px 0 0 2px #55efc4;
+  animation: rb-rain 1.6s ease forwards;
+}
+.rb-confetti::after {
+  transform: translateX(-10px);
+  animation-delay: 0.1s;
+}
+@keyframes rb-rain {
+  to {
+    transform: translateY(220px) rotate(20deg);
+    opacity: 0;
+  }
+}
+
+/* Ask panel */
+.rb-ask {
+  margin: 1.2rem auto 0;
+  padding: 1rem;
+  max-width: 1020px;
+}
+.rb-ask-title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin-bottom: 0.7rem;
+}
+.rb-ask-row {
+  display: flex;
+  gap: 0.6rem;
+}
+.rb-ask-row input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.65rem 0.8rem;
+  color: var(--ink);
+  outline: none;
+}
+.rb-ask-row input::placeholder {
+  color: rgba(255, 255, 255, 0.45);
+}
+.rb-ask-row button {
+  padding: 0.65rem 0.9rem;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.16),
+    rgba(255, 255, 255, 0.06)
+  );
+  color: var(--ink);
+  cursor: pointer;
+}
+.rb-ask-answer {
+  margin-top: 0.8rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.rb-help {
+  margin-top: 0.8rem;
+  color: var(--muted2);
+  font-size: 0.9rem;
+}

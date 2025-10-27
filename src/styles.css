@@ -118,7 +118,7 @@ h2.h2 {
   margin: 0 0 16px;
 }
 
-/* Header */
+/* Header / Navbar */
 .header {
   position: sticky;
   top: 0;
@@ -191,10 +191,10 @@ h2.h2 {
   gap: 8px;
   padding: 6px 10px;
   font-size: 12px;
-  border: 1px solid #233044; /* higher contrast */
+  border: 1px solid #233044;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06); /* brighter base */
-  color: var(--text); /* force readable text */
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
   cursor: pointer;
   user-select: none;
   transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease;
@@ -252,19 +252,39 @@ h2.h2 {
   color: var(--muted);
 }
 
-/* Recharts — grid & axes */
+/* =============================
+   Recharts – grid, axes, text, tooltips
+   ============================= */
+
+/* Grid lines */
 .recharts-cartesian-grid-horizontal line,
 .recharts-cartesian-grid-vertical line {
   stroke: var(--border) !important;
 }
 
-/* Force bright tick labels (no black-on-black) */
+/* Axis ticks (both axes) */
 .recharts-xAxis .recharts-cartesian-axis-tick-value tspan,
 .recharts-yAxis .recharts-cartesian-axis-tick-value tspan {
   fill: var(--text) !important;
 }
 
-/* Tooltip */
+/* ✅ Global SVG text fallback — prevents black-on-black anywhere */
+svg text,
+.recharts-text,
+.recharts-text tspan {
+  fill: var(--text) !important;
+  color: var(--text) !important;
+}
+
+/* Legends & labels */
+.recharts-legend-item-text,
+.recharts-default-legend,
+.recharts-label {
+  fill: var(--text) !important;
+  color: var(--text) !important;
+}
+
+/* Tooltip container + text */
 .recharts-tooltip-wrapper .recharts-default-tooltip {
   background: var(--panel-strong) !important;
   border: 1px solid var(--border) !important;
@@ -273,8 +293,36 @@ h2.h2 {
   padding: 10px 12px !important;
   font-size: 12px !important;
 }
+.recharts-tooltip-item,
+.recharts-tooltip-item-name,
+.recharts-tooltip-item-value,
+.recharts-tooltip-item-list {
+  color: var(--text) !important;
+  fill: var(--text) !important;
+}
 
-/* Skeleton shimmer */
+/* Bar value labels (if enabled) */
+.recharts-bar-rectangle text,
+.recharts-bar-label {
+  fill: var(--text) !important;
+}
+
+/* Subtle hover glow for bars/areas/lines */
+.recharts-bar-rectangle path,
+.recharts-rectangle,
+.recharts-area-area,
+.recharts-line-curve {
+  transition: filter 160ms ease, opacity 160ms ease;
+}
+.recharts-bar-rectangle:hover path,
+.recharts-rectangle:hover {
+  filter: drop-shadow(0 0 10px rgba(142, 231, 255, 0.35));
+  opacity: 0.95;
+}
+
+/* =============================
+   Skeleton shimmer
+   ============================= */
 .skel {
   position: relative;
   overflow: hidden;

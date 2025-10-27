@@ -88,7 +88,7 @@ const sumLastDays = (chart = [], days = 30) => {
 };
 
 /* ---------- thin bar row ---------- */
-function BarRow({ name, value, max, right, color }) {
+function BarRow({ name, value, max, right, color, subRight }) {
   const pct = max > 0 ? Math.max(0, (value / max) * 100) : 0;
   return (
     <div className="bar-row">
@@ -104,7 +104,10 @@ function BarRow({ name, value, max, right, color }) {
           }}
         />
       </div>
-      <div className="bar-value">{right}</div>
+      <div className="bar-value">
+        <div>{right}</div>
+        {subRight && <div className="text-xs opacity-80">{subRight}</div>}
+      </div>
     </div>
   );
 }
@@ -143,7 +146,7 @@ export default function BattleOfChains() {
   const [devLoading, setDevLoading] = useState(false);
   const [devCacheBump, setDevCacheBump] = useState(0);
 
-  /* ----------- Global data with SWR cache ----------- */
+  /* ----------- Global data with SWR-like cache ----------- */
   useEffect(() => {
     const KEY = "bochains-cache-v1";
     const STALE_MS = 6 * 60 * 60 * 1000; // 6h
@@ -184,29 +187,57 @@ export default function BattleOfChains() {
   const totalAvgTps = agg?.totals?.avgTPS || 0;
   const totalTvl = agg?.totals?.tvl || 0;
 
-  /* ---------- Category leaderboard ---------- */
-  const verticalLB = useMemo(() => {
-    const fmt = (k, v) =>
-      k === METRIC_KEYS.AVG_TPS ? fmtTPS(v) : k === METRIC_KEYS.TVL ? fmtUSD(v) : fmtInt(v);
-    const entries = Object.entries(agg.byVertical || {}).map(([name, obj]) => {
-      const val = readMetric(obj.combined, metric);
-      return { name, raw: val, fmt: fmt(metric, val) };
-    });
-    entries.sort((a, b) => b.raw - a.raw);
-    return { entries, max: entries[0]?.raw || 0 };
-  }, [agg, metric]);
+  /* ---------- helpers: value formatting & RaaS winner picking ---------- */
+  const fmtByMetric = useMemo(
+    () => (k, v) =>
+      k === METRIC_KEYS.AVG_TPS ? fmtTPS(v) : k === METRIC_KEYS.TVL ? fmtUSD(v) : fmtInt(v),
+    []
+  );
 
-  /* ---------- Stack leaderboard ---------- */
-  const stackLB = useMemo(() => {
-    const fmt = (k, v) =>
-      k === METRIC_KEYS.AVG_TPS ? fmtTPS(v) : k === METRIC_KEYS.TVL ? fmtUSD(v) : fmtInt(v);
-    const entries = Object.entries(agg.byStack || {}).map(([name, obj]) => {
-      const val = readMetric(obj.combined, metric);
-      return { name, raw: val, fmt: fmt(metric, val) };
+  // Pick best RaaS for a given aggregate bucket (perRaaS object)
+  const pickRaaSWinner = (perRaaSObj, metricKey) => {
+    if (!perRaaSObj) return { raas: "—", val: 0 };
+    let best = null;
+    for (const [raas, bucket] of Object.entries(perRaaSObj)) {
+      const v = readMetric(bucket, metricKey);
+      if (!best || v > best.val) best = { raas, val: v };
+    }
+    return best || { raas: "—", val: 0 };
+  };
+
+  /* ---------- Category leaderboard + RaaS winners ---------- */
+  const verticalLB = useMemo(() => {
+    const entries = Object.entries(agg.byVertical || {}).map(([name, obj]) => {
+      const totalVal = readMetric(obj.combined, metric);
+      const winner = pickRaaSWinner(obj.perRaaS, metric);
+      return {
+        name,
+        raw: totalVal,
+        fmt: fmtByMetric(metric, totalVal),
+        winnerRaas: winner.raas,
+        winnerFmt: fmtByMetric(metric, winner.val),
+      };
     });
     entries.sort((a, b) => b.raw - a.raw);
     return { entries, max: entries[0]?.raw || 0 };
-  }, [agg, metric]);
+  }, [agg, metric, fmtByMetric]);
+
+  /* ---------- Stack leaderboard + RaaS winners ---------- */
+  const stackLB = useMemo(() => {
+    const entries = Object.entries(agg.byStack || {}).map(([name, obj]) => {
+      const totalVal = readMetric(obj.combined, metric);
+      const winner = pickRaaSWinner(obj.perRaaS, metric);
+      return {
+        name,
+        raw: totalVal,
+        fmt: fmtByMetric(metric, totalVal),
+        winnerRaas: winner.raas,
+        winnerFmt: fmtByMetric(metric, winner.val),
+      };
+    });
+    entries.sort((a, b) => b.raw - a.raw);
+    return { entries, max: entries[0]?.raw || 0 };
+  }, [agg, metric, fmtByMetric]);
 
   /* ---------- Performance (RaaS bars + winners rule) ---------- */
   const perfByRaaS = useMemo(() => {
@@ -254,7 +285,7 @@ export default function BattleOfChains() {
       .slice(0, 3);
 
     const winners = allChains.map((c) => ({
-      title: perfMetric === PERF.TX ? `${c.chain} • ${c.raas}` : c.chain,
+      title: `${c.chain} • ${c.raas}`,
       label: PERF_LABEL[perfMetric],
       value: perfMetric === PERF.BLK ? fmtBlockTime(c.value) : fmtInt(c.value),
     }));
@@ -311,7 +342,7 @@ export default function BattleOfChains() {
     try {
       const raw = localStorage.getItem(key);
       if (raw) {
-        const { at, data } = JSON.parse(raw);
+        const { at } = JSON.parse(raw);
         setDevCacheBump((n) => n + 1);
         if (!at || Date.now() - at > STALE_MS) fetchFresh();
       } else {
@@ -352,7 +383,7 @@ export default function BattleOfChains() {
       .sort((a, b) => b.value - a.value)
       .slice(0, 3)
       .map((c) => ({
-        title: c.chain,
+        title: `${c.chain} • ${c.raas}`,
         label: DEV_LABEL[devMetric],
         value: fmtInt(c.value),
       }));
@@ -369,7 +400,7 @@ export default function BattleOfChains() {
     };
   }, [devMetric, devCacheBump]);
 
-  /* ---------- NEW: Structure (Counts) from CHAINS meta ---------- */
+  /* ---------- Structure (Counts) from CHAINS meta ---------- */
   const structure = useMemo(() => {
     const all = Array.isArray(CHAINS) ? CHAINS : [];
 
@@ -499,13 +530,21 @@ export default function BattleOfChains() {
           <div>
             <h2>🏆 Category Arena</h2>
             <p className="text-neutral-300/90 mt-1">
-              Compare RaaS dominance across verticals.
+              Compare RaaS dominance across verticals. (Winner = top RaaS in each vertical)
             </p>
           </div>
         </div>
         <div className="bar-list">
           {verticalLB.entries.map((e) => (
-            <BarRow key={e.name} name={e.name} value={e.raw} right={e.fmt} max={verticalLB.max} />
+            <BarRow
+              key={e.name}
+              name={e.name}
+              value={e.raw}
+              right={e.fmt}
+              max={verticalLB.max}
+              subRight={`🏅 ${e.winnerRaas} • ${e.winnerFmt}`}
+              color={undefined}
+            />
           ))}
         </div>
       </section>
@@ -515,12 +554,21 @@ export default function BattleOfChains() {
         <div className="arena-header">
           <div>
             <h2>🧱 Rollup Stack Arena</h2>
-            <p className="text-neutral-300/90 mt-1">Which stacks dominate across RaaS.</p>
+            <p className="text-neutral-300/90 mt-1">
+              Which stacks dominate across RaaS. (Winner = top RaaS in each stack)
+            </p>
           </div>
         </div>
         <div className="bar-list">
           {stackLB.entries.map((e) => (
-            <BarRow key={e.name} name={e.name} value={e.raw} right={e.fmt} max={stackLB.max} />
+            <BarRow
+              key={e.name}
+              name={e.name}
+              value={e.raw}
+              right={e.fmt}
+              max={stackLB.max}
+              subRight={`🏅 ${e.winnerRaas} • ${e.winnerFmt}`}
+            />
           ))}
         </div>
       </section>
@@ -603,7 +651,7 @@ export default function BattleOfChains() {
         <Podium items={devByRaaS.winners} />
       </section>
 
-      {/* ===================== NEW: Structure (Counts) ===================== */}
+      {/* ===================== Structure (Counts) ===================== */}
       <section className="arena mt-8">
         <div className="arena-header">
           <div>
